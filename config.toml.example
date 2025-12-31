@@ -1,0 +1,41 @@
+# SSH Agent Router Configuration Example
+# Copy this file to ~/.config/ssh-agent-router/config.toml and customize
+
+# Path to the upstream SSH agent socket
+# Default: value of SSH_AUTH_SOCK environment variable
+# Uncomment and set to override:
+# upstream = "/tmp/ssh-agent.sock"
+
+# Socket configurations
+# Each socket can filter which keys are available based on fingerprints
+# Use 'ssh-add -l' to get your key fingerprints
+
+# Example 1: Work socket with specific allowed keys
+[[sockets]]
+path = "/tmp/ssh-router-work.sock"
+allowed = ["SHA256:abc123example", "SHA256:def456example"]
+denied = []
+
+# Example 2: Personal socket with different allowed keys
+[[sockets]]
+path = "/tmp/ssh-router-personal.sock"
+allowed = ["SHA256:xyz789example"]
+denied = ["SHA256:blockedexample"]
+
+# Example 3: Restricted socket that allows all except denied
+[[sockets]]
+path = "/tmp/ssh-router-restricted.sock"
+allowed = []  # Empty means allow all
+denied = ["SHA256:compromisedkey"]
+
+# Example 4: Multiple restrictions
+# [[sockets]]
+# path = "/tmp/ssh-router-custom.sock"
+# allowed = ["SHA256:key1", "SHA256:key2", "SHA256:key3"]
+# denied = ["SHA256:oldkey"]
+
+# After setting up your configuration:
+# 1. Run 'ssh-agent-router' to start the router
+# 2. In your shell, set SSH_AUTH_SOCK to one of the filtered sockets:
+#    export SSH_AUTH_SOCK=/tmp/ssh-router-work.sock
+# 3. SSH commands will now only use the keys allowed by that socket
