@@ -223,8 +223,14 @@ impl FilteredSocket {
         
         // Semaphore to limit concurrent connections
         let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS));
+        
+        // Channel to signal when the listener is ready
+        let (tx, rx) = tokio::sync::oneshot::channel();
 
         task::spawn_blocking(move || {
+            // Signal that we're ready
+            let _ = tx.send(());
+            
             for stream in listener.incoming() {
                 match stream {
                     Ok(stream) => {
@@ -258,6 +264,9 @@ impl FilteredSocket {
                 }
             }
         });
+        
+        // Wait for the listener to be ready
+        rx.await.context("Failed to start socket listener")?;
 
         Ok(())
     }
