@@ -1,14 +1,9 @@
-mod cli;
-mod config;
-mod agent;
-mod socket;
-
 use anyhow::Result;
 use clap::Parser;
-use cli::{Cli, Commands, SocketConfig};
-use config::Config;
-use agent::Agent;
-use socket::FilteredSocket;
+use ssh_agent_router::cli::{Cli, Commands, SocketConfig};
+use ssh_agent_router::config::{self, Config};
+use ssh_agent_router::agent::Agent;
+use ssh_agent_router::socket::FilteredSocket;
 use std::sync::Arc;
 
 #[tokio::main]
@@ -33,8 +28,18 @@ async fn main() -> Result<()> {
             cli.upstream.clone()
         };
 
-        for socket_str in &cli.sockets {
-            let socket_cfg = SocketConfig::parse(socket_str)?;
+        // Try to parse as space-separated format first
+        let socket_configs = if cli.sockets.iter().any(|s| s.contains(':')) {
+            // Colon-separated format
+            cli.sockets.iter()
+                .map(|s| SocketConfig::parse(s))
+                .collect::<Result<Vec<_>>>()?
+        } else {
+            // Space-separated format (with -- separators)
+            SocketConfig::parse_spaced(&cli.sockets)?
+        };
+
+        for socket_cfg in socket_configs {
             cfg.sockets.push(config::SocketEntry {
                 path: socket_cfg.path,
                 allowed: socket_cfg.allowed_fingerprints,

@@ -6,6 +6,14 @@ authors = ["kawaz"]
 description = "SSH agent router with key filtering capabilities"
 license = "MIT"
 
+[[bin]]
+name = "ssh-agent-router"
+path = "src/main.rs"
+
+[lib]
+name = "ssh_agent_router"
+path = "src/lib.rs"
+
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
 tokio = { version = "1.42", features = ["full"] }
