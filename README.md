@@ -2,6 +2,31 @@
 
 A program that creates multiple SSH authentication sockets with usage restrictions from a single upstream SSH agent. This allows you to control which SSH keys are available to different applications or contexts.
 
+## Quick Start
+
+1. **Build the project**:
+   ```bash
+   cargo build --release
+   ```
+
+2. **Get your SSH key fingerprints**:
+   ```bash
+   ssh-add -l
+   ```
+
+3. **Run with inline configuration**:
+   ```bash
+   ./target/release/ssh-agent-router \
+     /tmp/work.sock:SHA256:your_work_key_fp \
+     /tmp/personal.sock:SHA256:your_personal_key_fp
+   ```
+
+4. **Use the filtered socket**:
+   ```bash
+   export SSH_AUTH_SOCK=/tmp/work.sock
+   ssh git@github.com  # Will only use work key
+   ```
+
 ## Features
 
 - **Key Filtering**: Create multiple sockets, each with its own set of allowed/denied keys
@@ -9,6 +34,7 @@ A program that creates multiple SSH authentication sockets with usage restrictio
 - **Configuration File**: Store your configuration in TOML format for easy management
 - **Foreground Execution**: Runs in the foreground for easy monitoring
 - **Subcommands**: List sockets, list keys, show status, and more
+- **Security**: Message size limits and connection throttling to prevent DoS attacks
 
 ## Installation
 
