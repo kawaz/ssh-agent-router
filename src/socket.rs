@@ -4,6 +4,8 @@ use std::collections::HashSet;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
 use std::io::{Read, Write};
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 use tokio::task;
 
 pub struct FilteredSocket {
@@ -135,6 +137,9 @@ impl FilteredSocket {
     }
 
     fn handle_client(&self, mut stream: UnixStream) -> Result<()> {
+        // Maximum message size (1MB should be more than enough for SSH agent)
+        const MAX_MESSAGE_SIZE: u32 = 1024 * 1024;
+        
         loop {
             // Read request length
             let mut len_buf = [0u8; 4];
@@ -145,6 +150,12 @@ impl FilteredSocket {
             }
 
             let msg_len = u32::from_be_bytes(len_buf);
+            
+            // Validate message size to prevent DoS
+            if msg_len > MAX_MESSAGE_SIZE {
+                eprintln!("Message too large: {} bytes (max: {})", msg_len, MAX_MESSAGE_SIZE);
+                return Err(anyhow::anyhow!("Message exceeds maximum size"));
+            }
             
             // Read request
             let mut request = vec![0u8; msg_len as usize];
@@ -184,6 +195,9 @@ impl FilteredSocket {
     }
 
     pub async fn start(&self) -> Result<()> {
+        // Maximum concurrent connections per socket
+        const MAX_CONCURRENT_CONNECTIONS: usize = 100;
+        
         // Remove socket file if it exists
         if self.path.exists() {
             std::fs::remove_file(&self.path)
@@ -206,6 +220,9 @@ impl FilteredSocket {
         let allowed = self.allowed_fingerprints.clone();
         let denied = self.denied_fingerprints.clone();
         let agent = self.agent.clone();
+        
+        // Semaphore to limit concurrent connections
+        let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS));
 
         task::spawn_blocking(move || {
             for stream in listener.incoming() {
@@ -217,12 +234,23 @@ impl FilteredSocket {
                             denied_fingerprints: denied.clone(),
                             agent: agent.clone(),
                         };
-
-                        std::thread::spawn(move || {
-                            if let Err(e) = socket.handle_client(stream) {
-                                eprintln!("Error handling client: {}", e);
+                        
+                        // Try to acquire a permit from the semaphore
+                        let sem_clone = semaphore.clone();
+                        match sem_clone.try_acquire_owned() {
+                            Ok(permit) => {
+                                std::thread::spawn(move || {
+                                    // Permit will be automatically released when dropped
+                                    let _permit = permit;
+                                    if let Err(e) = socket.handle_client(stream) {
+                                        eprintln!("Error handling client: {}", e);
+                                    }
+                                });
                             }
-                        });
+                            Err(_) => {
+                                eprintln!("Connection limit reached, rejecting connection");
+                            }
+                        }
                     }
                     Err(e) => {
                         eprintln!("Connection error: {}", e);
