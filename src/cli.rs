@@ -83,6 +83,9 @@ impl SocketConfig {
         
         for fp in fingerprints {
             let fp = fp.trim();
+            if fp.is_empty() {
+                continue;
+            }
             if fp.starts_with('-') {
                 denied.push(fp[1..].to_string());
             } else {
@@ -126,13 +129,16 @@ impl SocketConfig {
             
             for fp in fingerprints {
                 let fp = fp.trim();
+                if fp.is_empty() {
+                    continue;
+                }
                 if fp.starts_with('-') {
                     denied.push(fp[1..].to_string());
                 } else {
                     allowed.push(fp.to_string());
                 }
             }
-            
+
             configs.push(SocketConfig {
                 path,
                 allowed_fingerprints: allowed,
