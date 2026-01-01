@@ -52,11 +52,17 @@ pub enum Commands {
         auto_upgrade: bool,
     },
     
-    /// Register auto-start on system boot
+    /// Register auto-start on system boot (macOS: launchd)
     RegisterAutostart,
-    
+
     /// Unregister auto-start on system boot
     UnregisterAutostart,
+
+    /// Start the background service
+    Start,
+
+    /// Stop the background service
+    Stop,
 }
 
 #[derive(Debug, Clone)]

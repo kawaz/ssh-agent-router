@@ -142,10 +142,10 @@ async fn handle_command(command: Commands) -> Result<()> {
         Commands::Status => {
             let config = Config::load()?;
             println!("SSH Agent Router Status");
-            println!("======================");
+            println!("=======================");
             println!("Upstream: {}", config.upstream);
             println!("Configured sockets: {}", config.sockets.len());
-            
+
             // Try to connect to upstream
             let agent = Agent::new(config.upstream.clone());
             match agent.list_keys() {
@@ -155,6 +155,22 @@ async fn handle_command(command: Commands) -> Result<()> {
                 }
                 Err(e) => {
                     println!("Upstream status: Error - {}", e);
+                }
+            }
+
+            // Show service status on macOS
+            #[cfg(target_os = "macos")]
+            {
+                println!();
+                println!("Service Status (launchd)");
+                println!("------------------------");
+                match ssh_agent_router::launchd::status() {
+                    Ok(status) => println!("Status: {}", status),
+                    Err(e) => println!("Status: Error - {}", e),
+                }
+                match ssh_agent_router::launchd::plist_path() {
+                    Ok(path) => println!("Plist: {:?}", path),
+                    Err(_) => {}
                 }
             }
         }
@@ -198,20 +214,55 @@ async fn handle_command(command: Commands) -> Result<()> {
             println!("Note: Self-upgrade functionality is planned for future releases.");
         }
         Commands::RegisterAutostart => {
-            println!("Register auto-start");
-            println!("Note: Auto-start registration is planned for future releases.");
             #[cfg(target_os = "macos")]
-            println!("On macOS, this will use launchd.");
+            {
+                ssh_agent_router::launchd::register()?;
+            }
             #[cfg(target_os = "linux")]
-            println!("On Linux, this will use systemd.");
-            #[cfg(target_os = "windows")]
-            println!("On Windows, this will use the Task Scheduler.");
+            {
+                println!("Note: Linux systemd support is planned for future releases.");
+            }
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+            {
+                println!("Auto-start registration is not supported on this platform.");
+            }
         }
         Commands::UnregisterAutostart => {
-            println!("Unregister auto-start");
-            println!("Note: Auto-start unregistration is planned for future releases.");
+            #[cfg(target_os = "macos")]
+            {
+                ssh_agent_router::launchd::unregister()?;
+            }
+            #[cfg(target_os = "linux")]
+            {
+                println!("Note: Linux systemd support is planned for future releases.");
+            }
+            #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+            {
+                println!("Auto-start unregistration is not supported on this platform.");
+            }
+        }
+        Commands::Start => {
+            #[cfg(target_os = "macos")]
+            {
+                ssh_agent_router::launchd::start()?;
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                println!("Service start is not supported on this platform.");
+                println!("Run 'ssh-agent-router' directly to start the router.");
+            }
+        }
+        Commands::Stop => {
+            #[cfg(target_os = "macos")]
+            {
+                ssh_agent_router::launchd::stop()?;
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                println!("Service stop is not supported on this platform.");
+            }
         }
     }
-    
+
     Ok(())
 }
